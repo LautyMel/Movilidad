@@ -1,116 +1,98 @@
-// Definición de precios de boletos por mes, inicializada con valores predeterminados
-let precios = {
-    "julio": [270, 280, 290],
-    "agosto": [371.13, 413.44, 445.29, 477.17, 508.83],
-    "septiembre": [371.13, 380, 390]
-};
 
-// Presupuesto inicial
-let presupuesto = 8000;
-
-function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function calcularGastoMensual(precios, presupuesto) {
-    let gastoMensual = {};
-    let totalGasto = 0;
-
-    for (let mes in precios) {
-        let gastosMes = [];
-        for (let precio of precios[mes]) {
-            let viajes = randomInt(1, 7); // Número aleatorio de viajes (entre 1 y 7)
-            let gasto = viajes * precio;
-
-            if (totalGasto + gasto <= presupuesto) {
-                gastosMes.push({ viajes, precio, gasto });
-                totalGasto += gasto;
+        // Función para parsear los precios ingresados por el usuario
+        function parsearPrecios() {
+            const precios = {};
+            for (let i = 1; i <= 3; i++) {
+                const mesSeleccionado = document.getElementById(`mes-${i}`).value;
+                const preciosMes = document.getElementById(`precios-${i}`).value;
+                precios[mesSeleccionado] = preciosMes.split(',').map(Number);
             }
+            return precios;
         }
-        gastoMensual[mes] = gastosMes;
-    }
 
-    return { gastoMensual, totalGasto };
-}
+        // Función para calcular el gasto mensual
+        function calcularGastoMensual(presupuesto, precios) {
+            let gastoMensual = {};
+            let totalGasto = 0;
+            let detalles = "";
 
-function ajustarSobrante(precios, gastoMensual, totalGasto, presupuesto) {
-    let sobrante = presupuesto - totalGasto;
-    let maxIteraciones = 100;
-
-    while (sobrante > 5 && maxIteraciones > 0) {
-        for (let mes in gastoMensual) {
-            let preciosDisponibles = precios[mes].filter(precio => !gastoMensual[mes].some(g => g.precio === precio));
-            preciosDisponibles.sort((a, b) => a - b);
-
-            for (let precio of preciosDisponibles) {
-                if (precio <= sobrante) {
-                    gastoMensual[mes].push({ viajes: 1, precio, gasto: precio });
-                    totalGasto += precio;
-                    sobrante -= precio;
-                    break;
+            for (let mes in precios) {
+                let gastosMes = [];
+                for (let precio of precios[mes]) {
+                    let viajes = Math.floor(Math.random() * 7) + 1; // 1 a 7 viajes aleatorios
+                    let gasto = (viajes * precio).toFixed(2);
+                    if (totalGasto + parseFloat(gasto) <= presupuesto) {
+                        gastosMes.push({ viajes, precio, gasto });
+                        totalGasto += parseFloat(gasto);
+                    }
                 }
+                gastoMensual[mes] = gastosMes;
             }
-            if (sobrante <= 5) {
-                sobrante = Math.max(sobrante, 0);
-                break;
+
+            // Mostrar los detalles de cada mes
+            for (let mes in gastoMensual) {
+                detalles += `<h3>${mes.charAt(0).toUpperCase() + mes.slice(1)}</h3><ul>`;
+                for (let gasto of gastoMensual[mes]) {
+                    detalles += `<li>Para ${mes.charAt(0).toUpperCase() + mes.slice(1)}: ${gasto.viajes} x $${gasto.precio.toFixed(2)} = $${gasto.gasto}</li>`;
+                }
+                detalles += `</ul>`;
             }
+
+            return { gastoMensual, totalGasto, detalles };
         }
-        maxIteraciones--;
-    }
 
-    sobrante = Math.max(sobrante, 0); // Asegurarse de que el sobrante no sea negativo
+        // Función para ajustar el sobrante
+        function ajustarSobrante(presupuesto, gastoMensual, totalGasto, precios) {
+            let sobrante = parseFloat((presupuesto - totalGasto).toFixed(2)); // Asegurarse de que sobrante sea un número
+            let maxIteraciones = 100;
+            let detalles = "";
 
-    return { totalGasto, sobrante };
-}
+            // Asegurarse de que el sobrante sea lo más pequeño posible (menor a 5)
+            while (sobrante >= 5 && maxIteraciones > 0) {
+                for (let mes in gastoMensual) {
+                    let preciosDisponibles = precios[mes].filter(precio => !gastoMensual[mes].some(gasto => gasto.precio === precio));
+                    preciosDisponibles.sort();
 
-// Función para actualizar el presupuesto desde el input
-function actualizarPresupuesto() {
-    const nuevoPresupuesto = parseFloat(document.getElementById("presupuestoInput").value);
-    if (!isNaN(nuevoPresupuesto) && nuevoPresupuesto >= 0) {
-        presupuesto = nuevoPresupuesto;
-        alert(`Presupuesto actualizado a $${presupuesto}`);
-    } else {
-        alert("Por favor, ingrese un valor válido para el presupuesto.");
-    }
-}
+                    // Intentar agregar precios solo si es posible
+                    for (let precio of preciosDisponibles) {
+                        let gasto = parseFloat(precio.toFixed(2));
+                        if (gasto <= sobrante) {
+                            gastoMensual[mes].push({ viajes: 1, precio, gasto });
+                            totalGasto += gasto;
+                            sobrante = parseFloat((sobrante - gasto).toFixed(2));
+                            detalles += `<p>Añadiendo 1 x $${precio.toFixed(2)} = $${gasto} a ${mes.charAt(0).toUpperCase() + mes.slice(1)}, nuevo sobrante: $${sobrante.toFixed(2)}</p>`;
+                            break;
+                        }
+                    }
+                    if (sobrante < 5) break; // Detener si sobrante es menor que 5
+                }
+                maxIteraciones--;
+            }
 
-// Función para actualizar los precios desde el input
-function actualizarPrecios() {
-    const preciosInput = document.getElementById("preciosInput").value;
-    const preciosArray = preciosInput.split(',').map(valor => parseFloat(valor.trim()));
-    
-    // Asumiendo que los precios proporcionados son para julio, agosto y septiembre
-    if (preciosArray.length >= 3) {
-        precios["julio"] = preciosArray.slice(0, 3);
-        precios["agosto"] = preciosArray.slice(3, 8);
-        precios["septiembre"] = preciosArray.slice(8);
-        alert("Precios actualizados correctamente.");
-    } else {
-        alert("Por favor, ingrese al menos tres precios para cada mes.");
-    }
-}
-
-function calcular() {
-    // Llamamos a la función para actualizar precios antes de calcular
-    actualizarPrecios();
-
-    let { gastoMensual, totalGasto } = calcularGastoMensual(precios, presupuesto);
-    let { totalGasto: totalGastoFinal, sobrante } = ajustarSobrante(precios, gastoMensual, totalGasto, presupuesto);
-
-    let resultadosDiv = document.getElementById('resultados');
-    resultadosDiv.innerHTML = '';
-
-    let resultadosHTML = '<h2>Resultados de Cálculo:</h2>';
-    
-    for (let mes in gastoMensual) {
-        resultadosHTML += `<h3>Para ${mes.charAt(0).toUpperCase() + mes.slice(1)}:</h3>`;
-        for (let gasto of gastoMensual[mes]) {
-            resultadosHTML += `<p>${gasto.viajes} x ${gasto.precio} = ${gasto.gasto.toFixed(2)}</p>`;
+            return { totalGasto, sobrante, detalles };
         }
-    }
 
-    resultadosHTML += `<h3>Total Gastado: $${totalGastoFinal.toFixed(2)}</h3>`;
-    resultadosHTML += `<h3>Sobrante: $${sobrante.toFixed(2)}</h3>`;
+        // Función para calcular los resultados
+        function calcular() {
+            let presupuesto = parseFloat(document.getElementById("presupuesto").value);
+            const precios = parsearPrecios();
 
-    resultadosDiv.innerHTML = resultadosHTML;
-}
+            // Asegurarnos que el presupuesto es válido
+            if (isNaN(presupuesto) || presupuesto <= 0) {
+                alert("Por favor, ingrese un presupuesto válido.");
+                return;
+            }
+
+            // Calcular gasto mensual
+            let { gastoMensual, totalGasto, detalles } = calcularGastoMensual(presupuesto, precios);
+
+            // Ajustar sobrante
+            let { totalGasto: totalFinal, sobrante, detallesSobrante } = ajustarSobrante(presupuesto, gastoMensual, totalGasto, precios);
+
+            // Mostrar los resultados en la página
+            document.getElementById("detalles").innerHTML = detalles + detallesSobrante;
+            document.getElementById("total-gasto").textContent = totalFinal.toFixed(2);
+            document.getElementById("sobrante").textContent = sobrante.toFixed(2);
+
+            document.getElementById("resultados").style.display = "block";
+        }
